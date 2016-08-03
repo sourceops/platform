@@ -13,10 +13,10 @@ import SearchBox from '../search_bar.jsx';
 import WebrtcHeader from './components/webrtc_header.jsx';
 import ConnectingScreen from 'components/loading_screen.jsx';
 
-import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
+import * as WebrtcActions from 'actions/webrtc_actions.jsx';
 
 import * as Utils from 'utils/utils.jsx';
-import {Constants, UserStatuses, WebrtcActionTypes, ActionTypes} from 'utils/constants.jsx';
+import {Constants, UserStatuses, WebrtcActionTypes} from 'utils/constants.jsx';
 
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
@@ -119,9 +119,13 @@ export default class WebrtcController extends React.Component {
 
     previewVideo() {
         if (this.mounted) {
+            const remoteUser = UserStore.getProfile(this.props.userId);
+            const remoteUserImage = Client.getUsersRoute() + '/' + remoteUser.id + '/image?time=' + remoteUser.update_at;
+
             if (this.localMedia) {
                 this.setState({
-                    localMediaLoaded: true
+                    localMediaLoaded: true,
+                    remoteUserImage
                 });
                 this.localMedia.enabled = true;
             } else {
@@ -133,7 +137,7 @@ export default class WebrtcController extends React.Component {
                             height: {ideal: IDEAL_VIDEO_HEIGHT}
                         }
                     },
-                    this.refs['main-video'],
+                    this.refs['local-video'],
                     (error, stream) => {
                         if (error) {
                             this.setState({
@@ -148,7 +152,8 @@ export default class WebrtcController extends React.Component {
                         }
                         this.localMedia = stream;
                         this.setState({
-                            localMediaLoaded: true
+                            localMediaLoaded: true,
+                            remoteUserImage
                         });
                     });
             }
@@ -262,7 +267,6 @@ export default class WebrtcController extends React.Component {
     handleRemoteStream(stream) {
         // attaching stream to where they belong
         this.refs['main-video'].srcObject = stream;
-        this.refs['local-video'].srcObject = this.localMedia;
 
         let isRemotePaused = false;
         let isRemoteMuted = false;
@@ -321,15 +325,7 @@ export default class WebrtcController extends React.Component {
             this.localMedia = null;
         }
 
-        AppDispatcher.handleServerAction({
-            type: ActionTypes.RECEIVED_SEARCH,
-            results: null
-        });
-
-        AppDispatcher.handleServerAction({
-            type: ActionTypes.RECEIVED_POST_SELECTED,
-            postId: null
-        });
+        WebrtcActions.initWebrtc(null, false);
     }
 
     onStatusChange() {
@@ -577,7 +573,7 @@ export default class WebrtcController extends React.Component {
                     this.doHangup(true);
                 }
             });
-        }, Constants.OVERLAY_TIME_DELAY);
+        }, Constants.WEBRTC_TIME_DELAY);
     }
 
     doAnswer(jsep) {
@@ -599,11 +595,6 @@ export default class WebrtcController extends React.Component {
             this.videocall.send({message: {request: 'hangup'}});
             this.videocall.hangup();
             this.toggleIcons();
-        }
-
-        if (this.state.callInProgress) {
-            this.refs['main-video'].srcObject = this.localMedia;
-            this.refs['local-video'].srcObject = null;
         }
 
         if (error) {
@@ -906,15 +897,15 @@ export default class WebrtcController extends React.Component {
 
     render() {
         const currentId = UserStore.getCurrentId();
+        const remoteImage = (<img src={this.state.remoteUserImage}/>);
         let localImage;
-        let localVideoHidden = 'hidden';
-        let remoteImage;
-        let remoteVideoHidden;
+        let localVideoHidden;
+        let remoteVideoHidden = 'hidden';
         let error;
         let remoteMute;
 
         let localImageHidden = 'webrtc__local-image hidden';
-        let remoteImageHidden = 'webrtc__remote-image hidden';
+        let remoteImageHidden = 'webrtc__remote-image';
 
         if (this.state.error) {
             error = (
@@ -989,7 +980,6 @@ export default class WebrtcController extends React.Component {
         }
 
         if (this.state.callInProgress) {
-            localVideoHidden = '';
             if (this.state.isPaused) {
                 localVideoHidden = 'hidden';
                 localImageHidden = 'webrtc__local-image';
@@ -999,7 +989,9 @@ export default class WebrtcController extends React.Component {
             if (this.state.isRemotePaused) {
                 remoteVideoHidden = 'hidden';
                 remoteImageHidden = 'webrtc__remote-image';
-                remoteImage = (<img src={this.state.remoteUserImage}/>);
+            } else {
+                remoteVideoHidden = '';
+                remoteImageHidden = 'webrtc__remote-image hidden';
             }
         }
 

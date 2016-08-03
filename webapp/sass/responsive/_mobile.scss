@@ -765,7 +765,8 @@
         display: block;
         width: 290px;
 
-        &.move--left {
+        &.move--left,
+        &.webrtc--show {
             @include translate3d(0, 0, 0);
         }
     }
@@ -944,7 +945,8 @@
             }
         }
 
-        &.move--left {
+        &.move--left,
+        &.webrtc--show {
             margin: 0;
             @include translate3d(-100%, 0, 0);
         }
